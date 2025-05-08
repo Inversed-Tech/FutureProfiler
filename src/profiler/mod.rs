@@ -8,9 +8,9 @@ mod cpu_profiler;
 #[cfg(feature = "perf")]
 pub use cpu_profiler::*;
 
-pub struct DefaultMetrics {}
+pub struct DefaultProfiler {}
 
-impl Profiler for DefaultMetrics {
+impl Profiler for DefaultProfiler {
     fn new() -> Self {
         Self {}
     }

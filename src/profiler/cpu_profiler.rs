@@ -8,8 +8,7 @@ use std::cell::RefCell;
 
 thread_local! {
     static CYCLES: RefCell<Counter> = RefCell::new(
-        Builder::new()
-            .kind(Hardware::INSTRUCTIONS)
+        Builder::new(Hardware::INSTRUCTIONS)
             .build()
             .expect("failed to create perf counter")
     );
@@ -59,5 +58,35 @@ impl Profiler for CpuProfiler {
 
     fn error(&self, label: &str) {
         eprintln!("FutureProfiler: {label} was not polled to completion");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::FutureProfiler;
+
+    #[tokio::test]
+    async fn cpu_prof1() {
+        let future = async {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            (0..1000000).sum::<u64>()
+        };
+
+        let profiler = FutureProfiler::<_, _, CpuProfiler>::new("custom_profiler", future);
+        let result = profiler.await;
+        println!("result: {result}");
+    }
+
+    #[tokio::test]
+    async fn cpu_prof2() {
+        let future = async {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            1_u64
+        };
+
+        let profiler = FutureProfiler::<_, _, CpuProfiler>::new("custom_profiler", future);
+        let result = profiler.await;
+        println!("result: {result}");
     }
 }
