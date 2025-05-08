@@ -7,28 +7,39 @@ use std::{
 };
 
 pub fn with_flag(woken: Arc<AtomicBool>, base: Waker) -> Waker {
-    unsafe fn clone(data: *const ()) -> RawWaker {
-        let (flag_ptr, base_ptr): (Arc<AtomicBool>, Waker) =
-            unsafe { (*(data as *const (Arc<AtomicBool>, Waker))).clone() };
-        into_raw_waker(flag_ptr, base_ptr)
+    fn into_raw(data: Arc<(AtomicBool, Waker)>) -> RawWaker {
+        let ptr = Arc::into_raw(data) as *const ();
+        RawWaker::new(ptr, &VTABLE)
     }
 
-    unsafe fn wake(data: *const ()) {
-        let (flag, base): &(Arc<AtomicBool>, Waker) =
-            unsafe { &*(data as *const (Arc<AtomicBool>, Waker)) };
-        flag.store(true, Ordering::SeqCst);
-        base.wake_by_ref();
+    unsafe fn clone(ptr: *const ()) -> RawWaker {
+        let arc = Arc::from_raw(ptr as *const (AtomicBool, Waker));
+        let cloned = arc.clone(); // bump ref count
+        std::mem::forget(arc); // keep original alive
+        into_raw(cloned)
     }
 
-    unsafe fn drop(_: *const ()) {}
-
-    fn into_raw_waker(flag: Arc<AtomicBool>, base: Waker) -> RawWaker {
-        let data = Box::into_raw(Box::new((flag, base))) as *const ();
-        RawWaker::new(data, &VTABLE)
+    unsafe fn wake(ptr: *const ()) {
+        let arc = Arc::from_raw(ptr as *const (AtomicBool, Waker));
+        arc.0.store(true, Ordering::SeqCst);
+        arc.1.wake(); // consumes base Waker
+        // Arc is dropped here
     }
 
-    static VTABLE: RawWakerVTable = RawWakerVTable::new(clone, wake, wake, drop);
+    unsafe fn wake_by_ref(ptr: *const ()) {
+        let arc = Arc::from_raw(ptr as *const (AtomicBool, Waker));
+        arc.0.store(true, Ordering::SeqCst);
+        arc.1.wake_by_ref();
+        std::mem::forget(arc); // don't drop the Arc
+    }
 
-    let raw = into_raw_waker(woken.clone(), base);
-    unsafe { Waker::from_raw(raw) }
+    unsafe fn drop(ptr: *const ()) {
+        let _ = Arc::from_raw(ptr as *const (AtomicBool, Waker));
+        // dropping Arc here
+    }
+
+    static VTABLE: RawWakerVTable = RawWakerVTable::new(clone, wake, wake_by_ref, drop);
+
+    let shared = Arc::new((woken, base));
+    unsafe { Waker::from_raw(into_raw(shared)) }
 }
