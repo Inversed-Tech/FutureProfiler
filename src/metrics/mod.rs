@@ -1,8 +1,12 @@
 //! Contains implementations of the AsyncMetrics trait
 
+use crate::AsyncMetrics;
 use std::time::Duration;
 
-use crate::AsyncMetrics;
+#[cfg(feature = "cpu-metrics")]
+mod cpu_metrics;
+#[cfg(feature = "cpu-metrics")]
+pub use cpu_metrics::*;
 
 pub struct DefaultMetrics {}
 
@@ -21,7 +25,7 @@ impl AsyncMetrics for DefaultMetrics {
 
     fn finish(&self, label: &str, wake_time: Duration, sleep_time: Duration) {
         println!(
-            "AsyncMetrics: {}, Wake Time: {:.3} ms, Sleep Time: {:.3} ms",
+            "AsyncMetrics: {}, wake_time: {:.3} ms, sleep_time: {:.3} ms",
             label,
             wake_time.as_micros() as f64 * 0.001,
             sleep_time.as_micros() as f64 * 0.001,
@@ -29,6 +33,6 @@ impl AsyncMetrics for DefaultMetrics {
     }
 
     fn error(&self, label: &str) {
-        println!("{label} was dropped early");
+        eprintln!("AsyncMetrics: {label} was not polled to completion");
     }
 }
