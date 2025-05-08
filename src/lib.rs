@@ -9,7 +9,6 @@
 //! user may include one of these within their own `Profiler` implementation.
 //!
 //! ### `Profiler` Trait
-//!
 //! - `new`: Creates a new instance of the profiler.
 //! - `prepare`: Called before polling the future.
 //! - `update`: Called after polling the future.
@@ -73,7 +72,7 @@
 //! async fn main() {
 //!     let future = async {
 //!         tokio::time::sleep(Duration::from_millis(100)).await;
-//!         (0..100).sum::<u64>()
+//!         (0..1000000).sum::<u64>()
 //!     };
 //!
 //!     let profiler = FutureProfiler::<_, _, CustomProfiler>::new("custom_profiler", future);
