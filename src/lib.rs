@@ -43,14 +43,45 @@ where
 
         let start = Instant::now();
         let this = unsafe { self.get_unchecked_mut() };
-        let r = match this.future.as_mut().poll(&mut new_cx) {
-            Poll::Ready(output) => Poll::Ready(output),
-            Poll::Pending => Poll::Pending,
-        };
-        if was_woken.load(Ordering::SeqCst) {
+        let r = this.future.as_mut().poll(&mut new_cx);
+        if !matches!(r, Poll::Pending) || was_woken.load(Ordering::SeqCst) {
             let elapsed = start.elapsed();
             this.duration += elapsed;
         }
         r
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::task::Poll;
+
+    #[tokio::test]
+    async fn test_async_tracer_duration() {
+        let future = async {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            std::thread::sleep(Duration::from_millis(101));
+            42
+        };
+
+        let mut tracer = AsyncTracer::new(future);
+        let waker = futures::task::noop_waker();
+        let mut cx = Context::from_waker(&waker);
+
+        match Pin::new(&mut tracer).poll(&mut cx) {
+            Poll::Pending => {}
+            Poll::Ready(_) => panic!("Future should not be ready yet"),
+        }
+
+        tokio::time::sleep(Duration::from_millis(150)).await;
+
+        match Pin::new(&mut tracer).poll(&mut cx) {
+            Poll::Ready(output) => assert_eq!(output, 42),
+            Poll::Pending => panic!("Future should be ready now"),
+        }
+
+        assert!(tracer.duration <= Duration::from_millis(103));
+        assert!(tracer.duration >= Duration::from_millis(101));
     }
 }
