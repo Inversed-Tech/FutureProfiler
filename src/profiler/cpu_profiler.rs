@@ -1,4 +1,4 @@
-use crate::AsyncMetrics;
+use crate::Profiler;
 use std::time::Duration;
 
 use perf_event::events::Hardware;
@@ -15,17 +15,17 @@ thread_local! {
     );
 }
 
-pub struct CpuMetrics {
+pub struct CpuProfiler {
     total_instructions: u64,
 }
 
-impl CpuMetrics {
+impl CpuProfiler {
     pub fn instructions(&self) -> u64 {
         self.total_instructions
     }
 }
 
-impl AsyncMetrics for CpuMetrics {
+impl Profiler for CpuProfiler {
     fn new() -> Self {
         Self {
             total_instructions: 0,
@@ -50,7 +50,7 @@ impl AsyncMetrics for CpuMetrics {
 
     fn finish(&self, label: &str, wake_time: Duration, sleep_time: Duration) {
         println!(
-            "AsyncMetrics: {label}, Executed Instructions: {}, wake_time: {:.3} ms, sleep_time: {:.3} ms",
+            "FutureProfiler: {label}, Executed Instructions: {}, wake_time: {:.3} ms, sleep_time: {:.3} ms",
             self.total_instructions,
             wake_time.as_micros() as f64 * 0.001,
             sleep_time.as_micros() as f64 * 0.001,
@@ -58,6 +58,6 @@ impl AsyncMetrics for CpuMetrics {
     }
 
     fn error(&self, label: &str) {
-        eprintln!("AsyncMetrics: {label} was not polled to completion");
+        eprintln!("FutureProfiler: {label} was not polled to completion");
     }
 }

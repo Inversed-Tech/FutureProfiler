@@ -1,5 +1,5 @@
 [package]
-name = "async-tracer"
+name = "future-profiler"
 version = "0.1.0"
 edition = "2024"
 
@@ -11,4 +11,4 @@ futures = "0.3.31"
 tokio = { version = "1.45.0", features = ["rt", "macros", "time"] }
 
 [features]
-cpu-metrics = ["perf-event2"]
+perf = ["perf-event2"]
