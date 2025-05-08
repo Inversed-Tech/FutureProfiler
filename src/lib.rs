@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 
-mod waker;
+mod custom_waker;
 
 pub struct AsyncTracer<T, R>
 where
@@ -38,7 +38,7 @@ where
     ///  It also must not be invalidated.
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let was_woken = Arc::new(AtomicBool::new(false));
-        let wrapped_waker = waker::waker_with_flag(was_woken.clone(), cx.waker().clone());
+        let wrapped_waker = custom_waker::with_flag(was_woken.clone(), cx.waker().clone());
         let mut new_cx = Context::from_waker(&wrapped_waker);
 
         let start = Instant::now();

@@ -6,7 +6,7 @@ use std::{
     task::{RawWaker, RawWakerVTable, Waker},
 };
 
-pub fn waker_with_flag(woken: Arc<AtomicBool>, base: Waker) -> Waker {
+pub fn with_flag(woken: Arc<AtomicBool>, base: Waker) -> Waker {
     unsafe fn clone(data: *const ()) -> RawWaker {
         let (flag_ptr, base_ptr): (Arc<AtomicBool>, Waker) =
             unsafe { (*(data as *const (Arc<AtomicBool>, Waker))).clone() };
