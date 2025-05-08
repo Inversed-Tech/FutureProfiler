@@ -18,30 +18,30 @@ pub trait Profiler {
     fn error(&self, label: &str);
 }
 
-pub struct FutureProfiler<T, R, M>
+pub struct FutureProfiler<T, R, P>
 where
     T: Future<Output = R> + Send,
-    M: Profiler,
+    P: Profiler,
 {
     label: String,
     // used to calculate sleep_time
     start: Instant,
     wake_time: Duration,
     sleep_time: Option<Duration>,
-    user_metrics: M,
+    user_profiler: P,
     // the future of interest. has to be pinned
     future: Pin<Box<T>>,
 }
 
-impl<T, R, M> FutureProfiler<T, R, M>
+impl<T, R, P> FutureProfiler<T, R, P>
 where
     T: Future<Output = R> + Send,
-    M: Profiler,
+    P: Profiler,
 {
     pub fn new<S: Into<String>>(label: S, future: T) -> Self {
         Self {
             label: label.into(),
-            user_metrics: M::new(),
+            user_profiler: P::new(),
             start: Instant::now(),
             wake_time: Duration::ZERO,
             sleep_time: None,
@@ -50,26 +50,26 @@ where
     }
 }
 
-impl<T, R, M> Drop for FutureProfiler<T, R, M>
+impl<T, R, P> Drop for FutureProfiler<T, R, P>
 where
     T: Future<Output = R> + Send,
-    M: Profiler,
+    P: Profiler,
 {
     fn drop(&mut self) {
         // if self.sleep_time is None then the future was not polled to completion.
         if let Some(sleep_time) = self.sleep_time {
-            self.user_metrics
+            self.user_profiler
                 .finish(&self.label, self.wake_time, sleep_time);
         } else {
-            self.user_metrics.error(&self.label);
+            self.user_profiler.error(&self.label);
         }
     }
 }
 
-impl<T, R, M> Future for FutureProfiler<T, R, M>
+impl<T, R, P> Future for FutureProfiler<T, R, P>
 where
     T: Future<Output = R> + Send,
-    M: Profiler,
+    P: Profiler,
 {
     type Output = R;
 
@@ -80,10 +80,10 @@ where
         let poll_start = Instant::now();
         let this = unsafe { self.get_unchecked_mut() };
 
-        this.user_metrics.prepare();
+        this.user_profiler.prepare();
         let r = this.future.as_mut().poll(cx);
         let elapsed = poll_start.elapsed();
-        this.user_metrics.update();
+        this.user_profiler.update();
         this.wake_time += elapsed;
 
         // update sleep_time when the future is completed. this could be done on drop but
