@@ -2,6 +2,12 @@
 name = "future-profiler"
 version = "0.1.0"
 edition = "2024"
+authors = ["Stuart Woodbury <stuart@inversed.tech>"]
+description = "Measures the time that a future spends being polled. Provides hooks to collect additional measurements during poll()."
+readme = "README.md"
+repository = "https://github.com/Inversed-Tech/FutureProfiler"
+license = "MIT OR Apache-2.0"
+keywords = ["profiling", "metrics", "futures", "async"]
 
 [dependencies]
 perf-event2 = { version = "0.7", optional = true }

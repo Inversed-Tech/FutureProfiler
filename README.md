@@ -4,7 +4,7 @@ The `future-profiler` crate provides a utility for profiling asynchronous Rust c
 
 ## Overview
 
-The `FutureProfiler` struct wraps a future and collects data before and after each invocation of the `poll()` function. It tracks time spent executing and sleeping. Users can implement the `Profiler` trait for additional data collection. The crate includes several `Profiler` implementations that can be composed into custom solutions.
+The `FutureProfiler` struct wraps a future and executes hooks before and after each invocation of the `poll()` function. By default it tracks the time spent in `poll()`. Users can collect additional data by implementing the `Profiler` trait. The crate includes several `Profiler` implementations.
 
 ## `Profiler` Trait
 - **`new`**: Creates a new instance of the profiler.
@@ -30,7 +30,7 @@ async fn main() {
 
     let profiler = FutureProfiler::<_, _, DefaultProfiler>::new("example_future", future);
     let result = profiler.await;
-    println!("Future result: {}", result);
+    println!("Future result: {}", result); // should show approximately no time spent executing and 100ms spent sleeping.
 }
 ```
 
@@ -40,6 +40,8 @@ async fn main() {
 use future_profiler::{FutureProfiler, Profiler, CpuProfiler};
 use std::time::Duration;
 
+// this example is trivial but shows how to compose profilers to avoid
+// re-implementing existing functionality.
 struct CustomProfiler {
     cpu_profiler: CpuProfiler,
 }

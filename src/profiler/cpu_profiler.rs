@@ -19,6 +19,7 @@ impl StaticVars {
         }
     }
 
+    // for re-entrancy, need to return the current hardware counter value. 
     fn prepare(&mut self) -> u64 {
         if self.stack_depth == 0 {
             self.counter.reset().unwrap();
@@ -28,8 +29,10 @@ impl StaticVars {
         self.counter.read().unwrap()
     }
 
+    // for re-entrancy, only disable the hardware counter when the stack depth
+    // is zero.
     fn update(&mut self) -> u64 {
-        assert!(self.stack_depth > 0);
+        assert!(self.stack_depth > 0, "CPU profiler failed. this error should be unreachable");
         self.stack_depth -= 1;
         if self.stack_depth == 0 {
             self.counter.disable().unwrap();
@@ -46,9 +49,10 @@ thread_local! {
     );
 }
 
-// this is designed to be re-entrant. If nested futures are profiled on the same thread with this profiler,
-// the instruction counter can't be disabled until the last future is finished. it also isn't enough
-// to simply read the hardware counter because after the outermost future, the counter won't start at zero.
+//! This CpuProfiler is intended for local testing and profiling. Counting hardware instructions is likely too
+//! expensive to use in production. With this assumption, this code will panic if the hardware counter fails
+//! to start, stop, or read a value. 
+//! The CpuProfiler is re-entrant - it can be used to profile nested futures on the same thread. 
 pub struct CpuProfiler {
     total_instructions: u64,
     instruction_start: u64,
