@@ -6,16 +6,52 @@ use perf_event::{Builder, Counter};
 
 use std::cell::RefCell;
 
+struct StaticVars {
+    counter: Counter,
+    stack_depth: usize,
+}
+
+impl StaticVars {
+    fn new(counter: Counter) -> Self {
+        Self {
+            counter,
+            stack_depth: 0,
+        }
+    }
+
+    fn prepare(&mut self) -> u64 {
+        if self.stack_depth == 0 {
+            self.counter.reset().unwrap();
+            self.counter.enable().unwrap();
+        }
+        self.stack_depth += 1;
+        self.counter.read().unwrap()
+    }
+
+    fn update(&mut self) -> u64 {
+        assert!(self.stack_depth > 0);
+        self.stack_depth -= 1;
+        if self.stack_depth == 0 {
+            self.counter.disable().unwrap();
+        }
+        self.counter.read().unwrap()
+    }
+}
+
 thread_local! {
-    static CYCLES: RefCell<Counter> = RefCell::new(
+    static GV: RefCell<StaticVars> = RefCell::new(StaticVars::new(
         Builder::new(Hardware::INSTRUCTIONS)
             .build()
-            .expect("failed to create perf counter")
+            .expect("failed to create perf counter"))
     );
 }
 
+// this is designed to be re-entrant. If nested futures are profiled on the same thread with this profiler,
+// the instruction counter can't be disabled until the last future is finished. it also isn't enough
+// to simply read the hardware counter because after the outermost future, the counter won't start at zero.
 pub struct CpuProfiler {
     total_instructions: u64,
+    instruction_start: u64,
 }
 
 impl CpuProfiler {
@@ -28,22 +64,21 @@ impl Profiler for CpuProfiler {
     fn new() -> Self {
         Self {
             total_instructions: 0,
+            instruction_start: 0,
         }
     }
 
     fn prepare(&mut self) {
-        CYCLES.with(|counter_cell| {
-            let mut counter = counter_cell.borrow_mut();
-            counter.reset().unwrap();
-            counter.enable().unwrap();
+        GV.with(|gv| {
+            let mut gv = gv.borrow_mut();
+            self.instruction_start = gv.prepare();
         });
     }
 
     fn update(&mut self) {
-        CYCLES.with(|counter_cell| {
-            let mut counter = counter_cell.borrow_mut();
-            counter.disable().unwrap();
-            self.total_instructions += counter.read().unwrap();
+        GV.with(|gv| {
+            let mut gv = gv.borrow_mut();
+            self.total_instructions += gv.update() - self.instruction_start;
         });
     }
 
