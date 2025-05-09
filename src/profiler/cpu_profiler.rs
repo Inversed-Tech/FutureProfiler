@@ -19,7 +19,7 @@ impl StaticVars {
         }
     }
 
-    // for re-entrancy, need to return the current hardware counter value. 
+    // for re-entrancy, need to return the current hardware counter value.
     fn prepare(&mut self) -> u64 {
         if self.stack_depth == 0 {
             self.counter.reset().unwrap();
@@ -32,7 +32,10 @@ impl StaticVars {
     // for re-entrancy, only disable the hardware counter when the stack depth
     // is zero.
     fn update(&mut self) -> u64 {
-        assert!(self.stack_depth > 0, "CPU profiler failed. this error should be unreachable");
+        assert!(
+            self.stack_depth > 0,
+            "CPU profiler failed. this error should be unreachable"
+        );
         self.stack_depth -= 1;
         if self.stack_depth == 0 {
             self.counter.disable().unwrap();
@@ -49,10 +52,10 @@ thread_local! {
     );
 }
 
-//! This CpuProfiler is intended for local testing and profiling. Counting hardware instructions is likely too
-//! expensive to use in production. With this assumption, this code will panic if the hardware counter fails
-//! to start, stop, or read a value. 
-//! The CpuProfiler is re-entrant - it can be used to profile nested futures on the same thread. 
+/// This CpuProfiler is intended for local testing and profiling. Counting hardware instructions is likely too
+/// expensive to use in production. With this assumption, this code will panic if the hardware counter fails
+/// to start, stop, or read a value.
+/// The CpuProfiler is re-entrant - it can be used to profile nested futures on the same thread.
 pub struct CpuProfiler {
     total_instructions: u64,
     instruction_start: u64,
@@ -125,6 +128,25 @@ mod tests {
         };
 
         let profiler = FutureProfiler::<_, _, CpuProfiler>::new("custom_profiler", future);
+        let result = profiler.await;
+        println!("result: {result}");
+    }
+
+    #[tokio::test]
+    async fn cpu_prof_nested() {
+        let future = async {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            let future2 = async {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                (0..1000000).sum::<u64>()
+            };
+            let profiler = FutureProfiler::<_, _, CpuProfiler>::new("nested_future", future2);
+            let result = profiler.await;
+            println!("result: {result}");
+            (0..1000000).sum::<u64>()
+        };
+
+        let profiler = FutureProfiler::<_, _, CpuProfiler>::new("outer_future", future);
         let result = profiler.await;
         println!("result: {result}");
     }
