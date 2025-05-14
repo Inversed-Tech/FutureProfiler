@@ -11,7 +11,7 @@ use tracing_subscriber::prelude::*;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 16)]
 async fn perfetto_test1() {
-    let perfetto_layer = PerfettoLayer {};
+    let perfetto_layer = PerfettoLayer::new();
     let fmt_layer = fmt::layer().with_ansi(false);
     tracing_subscriber::registry()
         .with(perfetto_layer)
@@ -30,7 +30,7 @@ async fn perfetto_test1() {
 
     let _guard = perfetto_guard(8192, &trace_file_path).unwrap();
 
-    let mut handles = FuturesUnordered::new();
+    /*let mut handles = FuturesUnordered::new();
     for i in 0..16 {
         let handle = tokio::spawn(async move {
             match i % 4 {
@@ -44,8 +44,9 @@ async fn perfetto_test1() {
         handles.push(handle);
     }
 
-    while let Some(_) = handles.next().await {}
+    while let Some(_) = handles.next().await {}*/
 
+    scenario3().await;
     tracing::debug!("ending perfetto tracing test");
 }
 

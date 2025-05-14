@@ -36,3 +36,13 @@ macro_rules! instrument_fut {
         }
     }};
 }
+
+#[macro_export]
+macro_rules! debug_print {
+    ($($arg:tt)*) => {
+        #[cfg(feature = "debug_test")]
+        {
+            println!($($arg)*);
+        }
+    };
+}

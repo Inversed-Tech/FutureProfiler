@@ -1,5 +1,5 @@
 #![cfg(feature = "perfetto")]
-
+#![cfg(not(feature = "subscriber"))]
 use future_profiler::{instrument_fut, perfetto_guard};
 use futures::StreamExt;
 use futures::stream::FuturesUnordered;

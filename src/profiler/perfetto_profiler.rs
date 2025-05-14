@@ -1,18 +1,10 @@
 use crate::Profiler;
+use crate::debug_print;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use tracing_profile_perfetto_sys::{EventData, TraceEvent};
-
-macro_rules! debug_print {
-    ($($arg:tt)*) => {
-        #[cfg(feature = "debug_test")]
-        {
-            println!($($arg)*);
-        }
-    };
-}
 
 const MAX_OPEN_TRACKS: usize = 32;
 type TrackId = u32;
@@ -32,7 +24,7 @@ struct TrackManager {
 
 impl TrackManager {
     fn new(max_tracks: usize) -> Self {
-        let available = (0_u32..max_tracks as u32).collect();
+        let available = (0_u32..max_tracks as TrackId).collect();
         Self { available }
     }
 
@@ -47,7 +39,7 @@ impl TrackManager {
 
 pub struct PerfettoProfiler {
     _label: String,
-    track_id: Option<u32>,
+    track_id: Option<TrackId>,
     track_event: Option<TraceEvent>,
     idle_event: Option<TraceEvent>,
 }
