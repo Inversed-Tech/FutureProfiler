@@ -27,10 +27,9 @@ async fn perfetto_test1() {
         .to_str()
         .expect("Failed to convert path to string")
         .to_string();
-
     let _guard = perfetto_guard(8192, &trace_file_path).unwrap();
 
-    /*let mut handles = FuturesUnordered::new();
+    let mut handles = FuturesUnordered::new();
     for i in 0..16 {
         let handle = tokio::spawn(async move {
             match i % 4 {
@@ -43,10 +42,7 @@ async fn perfetto_test1() {
         });
         handles.push(handle);
     }
-
-    while let Some(_) = handles.next().await {}*/
-
-    scenario3().await;
+    while let Some(_) = handles.next().await {}
     tracing::debug!("ending perfetto tracing test");
 }
 

@@ -44,6 +44,7 @@ impl TrackManager {
 
 struct PerfettoMetadata {
     track_id: Option<TrackId>,
+    root_event: Option<TraceEvent>,
     trace_event: Option<TraceEvent>,
     call_depth: usize,
 }
@@ -66,6 +67,8 @@ impl Drop for PerfettoMetadata {
     fn drop(&mut self) {
         if self.call_depth == 0 {
             if let Some(track_id) = self.track_id {
+                self.root_event.take();
+                debug_print!("drop {:?}", track_id);
                 TRACK_MANAGER.lock().release(track_id);
             }
         }
@@ -119,10 +122,21 @@ where
 
         debug_print!("new_span {}.{:?}", span.name(), track_id);
 
+        let mut root_event = None;
+        if call_depth == 0 {
+            if let Some(id) = track_id {
+                let track_name = format!("track_{}", id);
+                let mut event = EventData::new(&track_name);
+                event.set_track_id(id as u64);
+                root_event.replace(TraceEvent::new(event));
+            }
+        }
+
         let meta = PerfettoMetadata {
             track_id,
             call_depth,
             trace_event: None,
+            root_event,
         };
 
         let mut extensions = span.extensions_mut();
