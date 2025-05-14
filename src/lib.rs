@@ -98,6 +98,10 @@ mod macros;
 mod perfetto_guard;
 #[cfg(feature = "perfetto")]
 pub use perfetto_guard::*;
+#[cfg(feature = "subscriber")]
+mod tracing_subscriber;
+#[cfg(feature = "subscriber")]
+pub use tracing_subscriber::*;
 
 pub use tracing;
 

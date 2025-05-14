@@ -11,7 +11,8 @@ keywords = ["profiling", "metrics", "futures", "async"]
 
 [dependencies]
 metrics-logger = "0.22.1"
-tracing = "0.1.40"
+tracing = { version = "0.1.40" }
+tracing-subscriber = { version = "0.3.16", features = ["env-filter", "std", "registry"] }
 
 perf-event2 = { version = "0.7", optional = true }
 once_cell = { version = "1.20.2", optional = true }
@@ -28,4 +29,5 @@ default = []
 perf = ["perf-event2"]
 perfetto = ["tracing-profile-perfetto-sys", "once_cell", "parking_lot"]
 metrics = []
+subscriber = ["perfetto"]
 debug_test = []
