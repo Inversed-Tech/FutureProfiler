@@ -1,38 +1,17 @@
 //! Contains implementations of the AsyncMetrics trait
 
-use crate::Profiler;
-use std::time::Duration;
-
 #[cfg(feature = "perf")]
 mod cpu_profiler;
 #[cfg(feature = "perf")]
 pub use cpu_profiler::*;
 
-pub struct DefaultProfiler {}
+mod default_profiler;
+pub use default_profiler::*;
 
-impl Profiler for DefaultProfiler {
-    fn new() -> Self {
-        Self {}
-    }
+mod metrics_profiler;
+pub use metrics_profiler::*;
 
-    fn prepare(&mut self) {
-        // Do nothing
-    }
-
-    fn update(&mut self) {
-        // Do nothing
-    }
-
-    fn finish(&self, label: &str, wake_time: Duration, sleep_time: Duration) {
-        println!(
-            "FutureProfiler: {}, wake_time: {:.3} ms, sleep_time: {:.3} ms",
-            label,
-            wake_time.as_micros() as f64 * 0.001,
-            sleep_time.as_micros() as f64 * 0.001,
-        );
-    }
-
-    fn error(&self, label: &str) {
-        eprintln!("FutureProfiler: {label} was not polled to completion");
-    }
-}
+#[cfg(feature = "perfetto")]
+mod perfetto_profiler;
+#[cfg(feature = "perfetto")]
+pub use perfetto_profiler::*;

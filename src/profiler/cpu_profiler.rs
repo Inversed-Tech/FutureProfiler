@@ -1,9 +1,8 @@
+use super::DefaultProfiler;
 use crate::Profiler;
-use std::time::Duration;
 
 use perf_event::events::Hardware;
 use perf_event::{Builder, Counter};
-
 use std::cell::RefCell;
 
 struct StaticVars {
@@ -59,6 +58,7 @@ thread_local! {
 pub struct CpuProfiler {
     total_instructions: u64,
     instruction_start: u64,
+    default_profiler: DefaultProfiler,
 }
 
 impl CpuProfiler {
@@ -68,33 +68,36 @@ impl CpuProfiler {
 }
 
 impl Profiler for CpuProfiler {
-    fn new() -> Self {
+    fn new(label: &str) -> Self {
         Self {
             total_instructions: 0,
             instruction_start: 0,
+            default_profiler: DefaultProfiler::new(label),
         }
     }
 
     fn prepare(&mut self) {
+        self.default_profiler.prepare();
         GV.with(|gv| {
             let mut gv = gv.borrow_mut();
             self.instruction_start = gv.prepare();
         });
     }
 
-    fn update(&mut self) {
+    fn update(&mut self, is_ready: bool) {
+        self.default_profiler.update(is_ready);
         GV.with(|gv| {
             let mut gv = gv.borrow_mut();
             self.total_instructions += gv.update() - self.instruction_start;
         });
     }
 
-    fn finish(&self, label: &str, wake_time: Duration, sleep_time: Duration) {
+    fn finish(&self, label: &str) {
         println!(
-            "FutureProfiler: {label}, Executed Instructions: {}, wake_time: {:.3} ms, sleep_time: {:.3} ms",
+            "FutureProfiler: {label}, Executed Instructions: {}, wake_time: {:.3} ms, idle_time: {:.3} ms",
             self.total_instructions,
-            wake_time.as_micros() as f64 * 0.001,
-            sleep_time.as_micros() as f64 * 0.001,
+            self.default_profiler.wake_time().as_micros() as f64 * 0.001,
+            self.default_profiler.idle_time().as_micros() as f64 * 0.001,
         );
     }
 
