@@ -40,6 +40,7 @@ impl TrackManager {
 pub struct PerfettoProfiler {
     _label: String,
     track_id: Option<TrackId>,
+    root_event: Option<TraceEvent>,
     track_event: Option<TraceEvent>,
     idle_event: Option<TraceEvent>,
 }
@@ -55,16 +56,24 @@ impl Profiler for PerfettoProfiler {
         };
 
         let mut track_event = None;
+        let mut root_event = None;
         if let Some(track_id) = track_id {
+            if is_root {
+                let root_label = format!("track_{}", track_id);
+                let mut event = EventData::new(&root_label);
+                event.set_track_id(track_id as u64);
+                root_event.replace(TraceEvent::new(event));
+            }
             let mut event = EventData::new(label);
             event.set_track_id(track_id as u64);
-            track_event = Some(TraceEvent::new(event));
+            track_event.replace(TraceEvent::new(event));
         }
 
         debug_print!("new {}.{:?}", label, track_id);
         PerfettoProfiler {
             _label: label.into(),
             track_id,
+            root_event,
             track_event,
             idle_event: None,
         }
@@ -101,6 +110,7 @@ impl Profiler for PerfettoProfiler {
             self.track_event.take();
             if is_root {
                 if let Some(id) = self.track_id {
+                    self.root_event.take();
                     TRACK_MANAGER.lock().release(id);
                 }
             }

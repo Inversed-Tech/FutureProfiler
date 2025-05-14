@@ -100,7 +100,7 @@ where
 
     fn on_new_span(
         &self,
-        attrs: &span::Attributes<'_>,
+        _attrs: &span::Attributes<'_>,
         id: &span::Id,
         ctx: tracing_subscriber::layer::Context<'_, S>,
     ) {
