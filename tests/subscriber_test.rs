@@ -1,11 +1,10 @@
 #![cfg(feature = "subscriber")]
 #![cfg(feature = "perfetto")]
 
-use future_profiler::{PerfettoLayer, instrument_fut, perfetto_guard};
+use future_profiler::{PerfettoLayer, perfetto_guard};
 use futures::StreamExt;
 use futures::stream::FuturesUnordered;
 use tokio::time::{Duration, sleep};
-use tracing::Level;
 use tracing::instrument;
 use tracing_subscriber::fmt;
 use tracing_subscriber::prelude::*;
@@ -35,10 +34,10 @@ async fn perfetto_test1() {
     for i in 0..16 {
         let handle = tokio::spawn(async move {
             match i % 4 {
-                0 => instrument_fut!("scenario1"; scenario4()).await,
-                1 => instrument_fut!("scenario2"; scenario4()).await,
-                2 => instrument_fut!("scenario3"; scenario4()).await,
-                3 => instrument_fut!("scenario4"; scenario4()).await,
+                0 => scenario1().await,
+                1 => scenario2().await,
+                2 => scenario3().await,
+                3 => scenario4().await,
                 _ => unreachable!(),
             }
         });

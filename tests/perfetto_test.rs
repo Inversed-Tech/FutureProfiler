@@ -25,9 +25,9 @@ async fn perfetto_test1() {
     for i in 0..16 {
         let handle = tokio::spawn(async move {
             match i % 4 {
-                0 => instrument_fut!("scenario1"; scenario4()).await,
-                1 => instrument_fut!("scenario2"; scenario4()).await,
-                2 => instrument_fut!("scenario3"; scenario4()).await,
+                0 => instrument_fut!("scenario1"; scenario1()).await,
+                1 => instrument_fut!("scenario2"; scenario2()).await,
+                2 => instrument_fut!("scenario3"; scenario3()).await,
                 3 => instrument_fut!("scenario4"; scenario4()).await,
                 _ => unreachable!(),
             }
