@@ -52,6 +52,12 @@ pub struct PerfettoProfiler {
     idle_event: Option<TraceEvent>,
 }
 
+impl PerfettoProfiler {
+    pub fn macro_hack<S: AsRef<str>>(input: S) -> Self {
+        Self::new(input.as_ref())
+    }
+}
+
 impl Profiler for PerfettoProfiler {
     fn new(label: &str) -> Self {
         let is_root = CALL_DEPTH.with(|depth| *depth.borrow() == 0);
