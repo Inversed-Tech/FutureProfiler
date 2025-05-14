@@ -13,9 +13,9 @@ static TRACK_MANAGER: Lazy<Mutex<TrackManager>> =
     Lazy::new(|| Mutex::new(TrackManager::new(MAX_OPEN_TRACKS)));
 
 thread_local! {
-    static TRACK_ID: RefCell<Option<TrackId>> = RefCell::new(None);
-    static CALL_DEPTH: RefCell<u32> = RefCell::new(0);
-    static FIRST_UPDATE: RefCell<bool> = RefCell::new(false);
+    static TRACK_ID: RefCell<Option<TrackId>> = const { RefCell::new(None) };
+    static CALL_DEPTH: RefCell<u32> = const { RefCell::new(0) };
+    static FIRST_UPDATE: RefCell<bool> = const { RefCell::new(false) };
 }
 
 struct TrackManager {
@@ -94,7 +94,7 @@ impl Profiler for PerfettoProfiler {
         let is_end = FIRST_UPDATE.with(|d| {
             let b = *d.borrow();
             *d.borrow_mut() = false;
-            b == true
+            b
         });
 
         if is_ready {

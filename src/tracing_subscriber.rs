@@ -1,15 +1,17 @@
 use crate::debug_print;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
-use std::cell::RefCell;
 use std::collections::VecDeque;
-use tracing::{
-    field::{Field, Visit},
-    span,
-};
+use tracing::span;
 use tracing_profile_perfetto_sys::{EventData, TraceEvent};
 
 pub struct PerfettoLayer {}
+
+impl Default for PerfettoLayer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl PerfettoLayer {
     pub fn new() -> Self {
@@ -159,7 +161,7 @@ where
 
         let trace_event = match meta.track_id {
             Some(id) => {
-                let mut event = EventData::new(&span.name());
+                let mut event = EventData::new(span.name());
                 event.set_track_id(id as u64);
                 Some(TraceEvent::new(event))
             }
