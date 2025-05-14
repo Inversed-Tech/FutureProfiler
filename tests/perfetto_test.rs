@@ -37,6 +37,8 @@ async fn perfetto_test1() {
 
     while let Some(_) = handles.next().await {}
 
+    instrument_fut!("scenario1"; scenario1()).await;
+
     tracing::debug!("ending perfetto tracing test");
 }
 
