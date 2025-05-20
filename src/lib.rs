@@ -88,19 +88,31 @@
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use std::time::{Duration, Instant};
 
 mod profiler;
 pub use profiler::*;
+mod macros;
+#[cfg(feature = "perfetto")]
+mod perfetto_guard;
+#[cfg(feature = "perfetto")]
+pub use perfetto_guard::*;
+#[cfg(feature = "subscriber")]
+mod tracing_subscriber;
+#[cfg(feature = "subscriber")]
+pub use tracing_subscriber::*;
+#[cfg(any(feature = "perfetto", feature = "subscriber"))]
+mod track_manager;
+
+pub use tracing;
 
 pub trait Profiler {
-    fn new() -> Self;
+    fn new(label: &str) -> Self;
     /// called before poll
     fn prepare(&mut self);
     /// called after poll
-    fn update(&mut self);
+    fn update(&mut self, is_ready: bool);
     /// logs the metrics. it takes as arguments the metrics collected by the AsyncTracer too.
-    fn finish(&self, label: &str, wake_time: Duration, sleep_time: Duration);
+    fn finish(&self, label: &str);
     /// called when the future is dropped early
     fn error(&self, label: &str);
 }
@@ -111,10 +123,7 @@ where
     P: Profiler,
 {
     label: String,
-    // used to calculate sleep_time
-    start: Instant,
-    wake_time: Duration,
-    sleep_time: Option<Duration>,
+    finished: bool,
     user_profiler: P,
     // the future of interest. has to be pinned
     future: Pin<Box<T>>,
@@ -126,12 +135,12 @@ where
     P: Profiler,
 {
     pub fn new<S: Into<String>>(label: S, future: T) -> Self {
+        let label = label.into();
+        let user_profiler = P::new(&label);
         Self {
-            label: label.into(),
-            user_profiler: P::new(),
-            start: Instant::now(),
-            wake_time: Duration::ZERO,
-            sleep_time: None,
+            label,
+            finished: false,
+            user_profiler,
             future: Box::pin(future),
         }
     }
@@ -143,11 +152,7 @@ where
     P: Profiler,
 {
     fn drop(&mut self) {
-        // if self.sleep_time is None then the future was not polled to completion.
-        if let Some(sleep_time) = self.sleep_time {
-            self.user_profiler
-                .finish(&self.label, self.wake_time, sleep_time);
-        } else {
+        if !self.finished {
             self.user_profiler.error(&self.label);
         }
     }
@@ -164,22 +169,16 @@ where
     ///  The `this` variable must not have any data moved out of it.
     ///  It also must not be invalidated.
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let poll_start = Instant::now();
         let this = unsafe { self.get_unchecked_mut() };
-
         this.user_profiler.prepare();
         let r = this.future.as_mut().poll(cx);
-        let elapsed = poll_start.elapsed();
-        this.user_profiler.update();
-        this.wake_time += elapsed;
+        let is_finished = !matches!(r, Poll::Pending);
+        this.user_profiler.update(is_finished);
 
-        // update sleep_time when the future is completed. this could be done on drop but
-        // if the caller doesn't drop the future, then sleep_time could be misreported.
-        if !matches!(r, Poll::Pending) {
-            this.sleep_time
-                .replace(this.start.elapsed() - this.wake_time);
+        if is_finished {
+            this.finished = true;
+            this.user_profiler.finish(&this.label);
         }
-
         r
     }
 }
@@ -188,6 +187,7 @@ where
 mod tests {
     use super::*;
     use std::task::Poll;
+    use std::time::Duration;
 
     #[tokio::test]
     async fn sleep_then_block() {
@@ -212,9 +212,6 @@ mod tests {
             Poll::Ready(output) => assert_eq!(output, 42),
             Poll::Pending => panic!("Future should be ready now"),
         }
-
-        assert!(profiler.wake_time <= Duration::from_millis(103));
-        assert!(profiler.wake_time >= Duration::from_millis(101));
     }
 
     #[tokio::test]
@@ -247,8 +244,5 @@ mod tests {
                 }
             }
         }
-
-        assert!(profiler.wake_time <= Duration::from_millis(142));
-        assert!(profiler.wake_time >= Duration::from_millis(141));
     }
 }
