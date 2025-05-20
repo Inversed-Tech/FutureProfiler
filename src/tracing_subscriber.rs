@@ -1,6 +1,6 @@
 use crate::{
     debug_print,
-    track_manager::{TRACK_MANAGER, TrackId},
+    track_manager::{MULTI_TRACK_MANAGER, MultiTrack},
 };
 use tracing::span;
 use tracing_profile_perfetto_sys::{EventData, TraceEvent};
@@ -20,7 +20,7 @@ impl PerfettoLayer {
 }
 
 struct PerfettoMetadata {
-    track_id: Option<TrackId>,
+    track: Option<MultiTrack>,
     root_event: Option<TraceEvent>,
     trace_event: Option<TraceEvent>,
     call_depth: usize,
@@ -29,24 +29,24 @@ struct PerfettoMetadata {
 impl PerfettoMetadata {
     fn public(&self) -> PublicMetadata {
         PublicMetadata {
-            track_id: self.track_id,
+            track: self.track,
             call_depth: self.call_depth,
         }
     }
 }
 
 struct PublicMetadata {
-    track_id: Option<TrackId>,
+    track: Option<MultiTrack>,
     call_depth: usize,
 }
 
 impl Drop for PerfettoMetadata {
     fn drop(&mut self) {
         if self.call_depth == 0 {
-            if let Some(track_id) = self.track_id {
+            if let Some(mt) = self.track {
                 self.root_event.take();
-                debug_print!("drop {:?}", track_id);
-                TRACK_MANAGER.lock().release(track_id);
+                debug_print!("drop {:?}", mt);
+                MULTI_TRACK_MANAGER.lock().release(mt);
             }
         }
     }
@@ -89,28 +89,35 @@ where
             extensions.get::<PerfettoMetadata>().map(|x| x.public())
         });
 
-        let (track_id, call_depth) = match parent_meta {
-            Some(meta) => (meta.track_id, meta.call_depth + 1),
+        let (track, call_depth) = match parent_meta {
+            Some(meta) => (meta.track, meta.call_depth + 1),
             None => {
-                let track_id = TRACK_MANAGER.lock().get();
-                (track_id, 0)
+                let track_type = match span.name() {
+                    "search_task" => Some(0),
+                    "match_task" => Some(1),
+                    _ => None,
+                };
+                (
+                    track_type.and_then(|t| MULTI_TRACK_MANAGER.lock().get(t)),
+                    0,
+                )
             }
         };
 
-        debug_print!("new_span {}.{:?}", span.name(), track_id);
+        debug_print!("new_span {}.{:?}", span.name(), track);
 
         let mut root_event = None;
         if call_depth == 0 {
-            if let Some(id) = track_id {
-                let track_name = format!("track_{}", id);
+            if let Some(mt) = track {
+                let track_name = format!("track_{}", mt.id);
                 let mut event = EventData::new(&track_name);
-                event.set_track_id(id as u64);
+                event.set_track_id(mt.id as u64);
                 root_event.replace(TraceEvent::new(event));
             }
         }
 
         let meta = PerfettoMetadata {
-            track_id,
+            track,
             call_depth,
             trace_event: None,
             root_event,
@@ -132,12 +139,12 @@ where
             return;
         };
 
-        debug_print!("on_enter: {}.{:?}", span.name(), meta.track_id);
+        debug_print!("on_enter: {}.{:?}", span.name(), meta.track);
 
-        let trace_event = match meta.track_id {
-            Some(id) => {
+        let trace_event = match meta.track {
+            Some(mt) => {
                 let mut event = EventData::new(span.name());
-                event.set_track_id(id as u64);
+                event.set_track_id(mt.id as u64);
                 Some(TraceEvent::new(event))
             }
             None => None,
@@ -158,7 +165,7 @@ where
             return;
         };
 
-        debug_print!("on_exit: {}.{:?}", span.name(), meta.track_id);
+        debug_print!("on_exit: {}.{:?}", span.name(), meta.track);
 
         meta.trace_event.take();
     }
